@@ -1,28 +1,72 @@
 #include "OrderBook.hpp"
 
 #include <iostream>
+#include <string>
+
+Side parseSide(const std::string& sideText) {
+    if (sideText == "BUY") {
+        return Side::BUY;
+    }
+
+    if (sideText == "SELL") {
+        return Side::SELL;
+    }
+
+    throw std::invalid_argument("Invalid side. Expected BUY or SELL.");
+}
 
 int main() {
     OrderBook orderBook;
 
-    std::cout << "Adding sample orders...\n";
+    std::string command;
 
-    orderBook.addOrder(1, Side::BUY, 100, 10);
-    orderBook.addOrder(2, Side::SELL, 99, 5);
-    orderBook.addOrder(3, Side::SELL, 101, 7);
-    orderBook.addOrder(4, Side::BUY, 101, 10);
+    std::cout << "C++ Matching Engine Simulator\n";
+    std::cout << "Supported commands:\n";
+    std::cout << "ADD <orderId> <BUY/SELL> <price> <quantity>\n";
+    std::cout << "CANCEL <orderId>\n";
+    std::cout << "MODIFY <orderId> <newPrice> <newQuantity>\n";
+    std::cout << "PRINT\n";
+    std::cout << "TRADES\n";
+    std::cout << "EXIT\n\n";
 
-    std::cout << "\nBook after initial matching:\n";
-    orderBook.printBook();
-    orderBook.printTrades();
+    while (std::cin >> command) {
+        try {
+            if (command == "ADD") {
+                int orderId;
+                std::string sideText;
+                int price;
+                int quantity;
 
-    std::cout << "\nTesting cancel operation...\n";
-    orderBook.cancelOrder(1);
-    orderBook.printBook();
+                std::cin >> orderId >> sideText >> price >> quantity;
 
-    std::cout << "\nTesting modify operation...\n";
-    orderBook.modifyOrder(4, 102, 8);
-    orderBook.printBook();
+                Side side = parseSide(sideText);
+                orderBook.addOrder(orderId, side, price, quantity);
+            } else if (command == "CANCEL") {
+                int orderId;
+                std::cin >> orderId;
+
+                orderBook.cancelOrder(orderId);
+            } else if (command == "MODIFY") {
+                int orderId;
+                int newPrice;
+                int newQuantity;
+
+                std::cin >> orderId >> newPrice >> newQuantity;
+
+                orderBook.modifyOrder(orderId, newPrice, newQuantity);
+            } else if (command == "PRINT") {
+                orderBook.printBook();
+            } else if (command == "TRADES") {
+                orderBook.printTrades();
+            } else if (command == "EXIT") {
+                break;
+            } else {
+                std::cout << "Unknown command: " << command << "\n";
+            }
+        } catch (const std::exception& exception) {
+            std::cout << "Error: " << exception.what() << "\n";
+        }
+    }
 
     return 0;
 }
