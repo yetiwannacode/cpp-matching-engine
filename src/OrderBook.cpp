@@ -185,3 +185,65 @@ void OrderBook::printTrades() const {
 
     std::cout << "==================\n";
 }
+
+void OrderBook::cancelOrder(int orderId) {
+    auto orderLocationIterator = orderMap.find(orderId);
+
+    if (orderLocationIterator == orderMap.end()) {
+        std::cout << "Cancel failed: Order ID not found: " << orderId << "\n";
+        return;
+    }
+
+    OrderLocation location = orderLocationIterator->second;
+
+    if (location.side == Side::BUY) {
+        auto priceLevelIterator = buyBook.find(location.price);
+
+        if (priceLevelIterator != buyBook.end()) {
+            auto& orderQueue = priceLevelIterator->second;
+            orderQueue.erase(location.iterator);
+
+            if (orderQueue.empty()) {
+                buyBook.erase(priceLevelIterator);
+            }
+        }
+    } else {
+        auto priceLevelIterator = sellBook.find(location.price);
+
+        if (priceLevelIterator != sellBook.end()) {
+            auto& orderQueue = priceLevelIterator->second;
+            orderQueue.erase(location.iterator);
+
+            if (orderQueue.empty()) {
+                sellBook.erase(priceLevelIterator);
+            }
+        }
+    }
+
+    orderMap.erase(orderId);
+
+    std::cout << "Cancelled order: " << orderId << "\n";
+}
+
+void OrderBook::modifyOrder(int orderId, int newPrice, int newQuantity) {
+    auto orderLocationIterator = orderMap.find(orderId);
+
+    if (orderLocationIterator == orderMap.end()) {
+        std::cout << "Modify failed: Order ID not found: " << orderId << "\n";
+        return;
+    }
+
+    if (newPrice <= 0 || newQuantity <= 0) {
+        std::cout << "Modify failed: price and quantity must be positive.\n";
+        return;
+    }
+
+    Side existingSide = orderLocationIterator->second.side;
+
+    cancelOrder(orderId);
+    addOrder(orderId, existingSide, newPrice, newQuantity);
+
+    std::cout << "Modified order: " << orderId
+              << " NewPrice=" << newPrice
+              << " NewQuantity=" << newQuantity << "\n";
+}
