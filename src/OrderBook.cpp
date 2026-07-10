@@ -136,3 +136,52 @@ void OrderBook::addToBook(const Order& order) {
         };
     }
 }
+
+void OrderBook::printBook() const {
+    std::cout << "\n===== ORDER BOOK =====\n";
+
+    std::cout << "SELL ORDERS:\n";
+    for (const auto& priceLevel : sellBook) {
+        int price = priceLevel.first;
+        const auto& orderQueue = priceLevel.second;
+
+        std::cout << "Price " << price << ": ";
+        for (const auto& order : orderQueue) {
+            std::cout << "[ID=" << order.orderId
+                      << ", Qty=" << order.quantity << "] ";
+        }
+        std::cout << "\n";
+    }
+
+    std::cout << "\nBUY ORDERS:\n";
+    for (const auto& priceLevel : buyBook) {
+        int price = priceLevel.first;
+        const auto& orderQueue = priceLevel.second;
+
+        std::cout << "Price " << price << ": ";
+        for (const auto& order : orderQueue) {
+            std::cout << "[ID=" << order.orderId
+                      << ", Qty=" << order.quantity << "] ";
+        }
+        std::cout << "\n";
+    }
+
+    std::cout << "======================\n";
+}
+
+void OrderBook::printTrades() const {
+    std::cout << "\n===== TRADES =====\n";
+
+    if (trades.empty()) {
+        std::cout << "No trades executed.\n";
+    }
+
+    for (const auto& trade : trades) {
+        std::cout << "BuyOrder=" << trade.buyOrderId
+                  << " SellOrder=" << trade.sellOrderId
+                  << " Price=" << trade.price
+                  << " Quantity=" << trade.quantity << "\n";
+    }
+
+    std::cout << "==================\n";
+}
