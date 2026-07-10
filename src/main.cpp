@@ -1,6 +1,7 @@
 #include "OrderBook.hpp"
 
 #include <iostream>
+#include<stdexcept>
 #include <string>
 
 Side parseSide(const std::string& sideText) {
@@ -27,6 +28,7 @@ int main() {
     std::cout << "MODIFY <orderId> <newPrice> <newQuantity>\n";
     std::cout << "PRINT\n";
     std::cout << "TRADES\n";
+    std::cout << "BENCHMARK <numberOfOrders>\n";
     std::cout << "EXIT\n\n";
 
     while (std::cin >> command) {
@@ -58,6 +60,11 @@ int main() {
                 orderBook.printBook();
             } else if (command == "TRADES") {
                 orderBook.printTrades();
+            } else if(command == "BENCHMARK"){
+                int numberOfOrders;
+                std::cin >> numberOfOrders;
+
+                orderBook.runBenchmark(numberOfOrders);
             } else if (command == "EXIT") {
                 break;
             } else {

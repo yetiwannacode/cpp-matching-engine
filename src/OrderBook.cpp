@@ -1,9 +1,12 @@
 #include "OrderBook.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <iomanip>
 #include <iostream>
+#include <random>
 
-OrderBook::OrderBook() : timestampCounter(0) {}
+OrderBook::OrderBook() : timestampCounter(0), verboseOutput(true) {}
 
 void OrderBook::addOrder(int orderId, Side side, int price, int quantity) {
     if (quantity <= 0 || price <= 0) {
@@ -55,8 +58,10 @@ void OrderBook::matchBuyOrder(Order& incomingOrder) {
             incomingOrder.quantity -= tradedQuantity;
             restingSellOrder.quantity -= tradedQuantity;
 
-            std::cout << "TRADE: BuyOrder=" << incomingOrder.orderId << " SellOrder=" << restingSellOrder.orderId
-                      << " Price=" << restingSellOrder.price << " Quantity=" << tradedQuantity << "\n";
+            if(verboseOutput){
+                std::cout << "TRADE: BuyOrder=" << incomingOrder.orderId << " SellOrder=" << restingSellOrder.orderId
+                          << " Price=" << restingSellOrder.price << " Quantity=" << tradedQuantity << "\n";
+            }
 
             if (restingSellOrder.quantity == 0) {
                 orderMap.erase(restingSellOrder.orderId);
@@ -96,9 +101,11 @@ void OrderBook::matchSellOrder(Order& incomingOrder) {
             incomingOrder.quantity -= tradedQuantity;
             restingBuyOrder.quantity -= tradedQuantity;
 
-            std::cout << "TRADE: BuyOrder=" << restingBuyOrder.orderId << " SellOrder=" << incomingOrder.orderId
-                      << " Price=" << restingBuyOrder.price << " Quantity=" << tradedQuantity << "\n";
-
+            if(verboseOutput){
+                std::cout << "TRADE: BuyOrder=" << restingBuyOrder.orderId << " SellOrder=" << incomingOrder.orderId
+                          << " Price=" << restingBuyOrder.price << " Quantity=" << tradedQuantity << "\n";
+            }
+            
             if (restingBuyOrder.quantity == 0) {
                 orderMap.erase(restingBuyOrder.orderId);
                 buyQueue.pop_front();
@@ -246,4 +253,46 @@ void OrderBook::modifyOrder(int orderId, int newPrice, int newQuantity) {
     std::cout << "Modified order: " << orderId
               << " NewPrice=" << newPrice
               << " NewQuantity=" << newQuantity << "\n";
+}
+
+void OrderBook::runBenchmark(int numberOfOrders) {
+    if (numberOfOrders <= 0) {
+        std::cout << "Benchmark failed: number of orders must be positive.\n";
+        return;
+    }
+
+    OrderBook benchmarkBook;
+    benchmarkBook.verboseOutput = false;
+
+    std::mt19937 randomGenerator(42);
+    std::uniform_int_distribution<int> sideDistribution(0, 1);
+    std::uniform_int_distribution<int> priceDistribution(90, 110);
+    std::uniform_int_distribution<int> quantityDistribution(1, 100);
+
+    auto startTime = std::chrono::high_resolution_clock::now();
+
+    for (int orderId = 1; orderId <= numberOfOrders; ++orderId) {
+        Side side = sideDistribution(randomGenerator) == 0 ? Side::BUY : Side::SELL;
+        int price = priceDistribution(randomGenerator);
+        int quantity = quantityDistribution(randomGenerator);
+
+        benchmarkBook.addOrder(orderId, side, price, quantity);
+    }
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+
+    auto totalMicroseconds =
+        std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
+
+    double averageMicroseconds =
+        static_cast<double>(totalMicroseconds) / static_cast<double>(numberOfOrders);
+
+    std::cout << "\n===== BENCHMARK =====\n";
+    std::cout << "Processed orders: " << numberOfOrders << "\n";
+    std::cout << "Total time: " << totalMicroseconds << " microseconds\n";
+    std::cout << "Average processing time: "
+              << std::fixed << std::setprecision(4)
+              << averageMicroseconds << " microseconds/order\n";
+    std::cout << "Trades generated: " << benchmarkBook.trades.size() << "\n";
+    std::cout << "=====================\n";
 }

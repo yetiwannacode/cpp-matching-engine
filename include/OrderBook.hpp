@@ -37,6 +37,7 @@ private:
 
     // Used to preserve time priority
     long long timestampCounter;
+    bool verboseOutput;
 
     // Internal helper functions
     void matchBuyOrder(Order& incomingOrder);
@@ -49,7 +50,7 @@ public:
     void addOrder(int orderId, Side side, int price, int quantity);
     void cancelOrder(int orderId);
     void modifyOrder(int orderId, int newPrice, int newQuantity);
-    
+
     void printBook() const;
     void printTrades() const;
     void runBenchmark(int numberOfOrders);
