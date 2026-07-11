@@ -147,7 +147,7 @@ The following assumptions are used:
 - All orders are limit orders.
 - Prices and quantities are represented as integers.
 - The engine handles one instrument/order book at a time.
-- Order IDs are assumed to be unique.
+- Active resting order IDs are assumed to be unique. Fully matched incoming orders are recorded in the trade log but are not retained in the active order map.
 - Matching happens immediately when an incoming order crosses the opposite side of the book.
 - Within the same price level, orders follow FIFO ordering to preserve time priority.
 - The trade price is taken from the resting order already present in the book.
