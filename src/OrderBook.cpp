@@ -4,6 +4,7 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <random>
 
 OrderBook::OrderBook() : timestampCounter(0), verboseOutput(true) {}
@@ -255,16 +256,11 @@ void OrderBook::modifyOrder(int orderId, int newPrice, int newQuantity) {
               << " NewQuantity=" << newQuantity << "\n";
 }
 
-void OrderBook::runBenchmark(int numberOfOrders) {
-    if (numberOfOrders <= 0) {
-        std::cout << "Benchmark failed: number of orders must be positive.\n";
-        return;
-    }
-
+OrderBook::BenchmarkResult OrderBook::runBenchmarkOnce(int numberOfOrders, unsigned int seed) {
     OrderBook benchmarkBook;
     benchmarkBook.verboseOutput = false;
 
-    std::mt19937 randomGenerator(42);
+    std::mt19937 randomGenerator(seed);
     std::uniform_int_distribution<int> sideDistribution(0, 1);
     std::uniform_int_distribution<int> priceDistribution(90, 110);
     std::uniform_int_distribution<int> quantityDistribution(1, 100);
@@ -287,12 +283,61 @@ void OrderBook::runBenchmark(int numberOfOrders) {
     double averageMicroseconds =
         static_cast<double>(totalMicroseconds) / static_cast<double>(numberOfOrders);
 
+    return BenchmarkResult{
+        totalMicroseconds,
+        averageMicroseconds,
+        benchmarkBook.trades.size()
+    };
+}
+
+void OrderBook::runBenchmark(int numberOfOrders) {
+    if (numberOfOrders <= 0) {
+        std::cout << "Benchmark failed: number of orders must be positive.\n";
+        return;
+    }
+
+    BenchmarkResult result = runBenchmarkOnce(numberOfOrders, 42);
+
     std::cout << "\n===== BENCHMARK =====\n";
     std::cout << "Processed orders: " << numberOfOrders << "\n";
-    std::cout << "Total time: " << totalMicroseconds << " microseconds\n";
-    std::cout << "Average processing time: "
-              << std::fixed << std::setprecision(4)
-              << averageMicroseconds << " microseconds/order\n";
-    std::cout << "Trades generated: " << benchmarkBook.trades.size() << "\n";
+    std::cout << "Total time: " << result.totalMicroseconds << " microseconds\n";
+    std::cout << "Average processing time: " << std::fixed << std::setprecision(4) << result.averageMicroseconds << " microseconds/order\n";
+    std::cout << "Trades generated: " << result.tradesGenerated << "\n";
     std::cout << "=====================\n";
+}
+
+void OrderBook::runBenchmarkMultiple(int numberOfOrders, int runs) {
+    if (numberOfOrders <= 0 || runs <= 0) {
+        std::cout << "Benchmark failed: number of orders and runs must be positive.\n";
+        return;
+    }
+
+    long long bestTime = std::numeric_limits<long long>::max();
+    long long worstTime = 0;
+    long long totalTime = 0;
+    std::size_t totalTrades = 0;
+
+    for (int run = 1; run <= runs; ++run) {
+        unsigned int seed = 42 + run;
+        BenchmarkResult result = runBenchmarkOnce(numberOfOrders, seed);
+
+        bestTime = std::min(bestTime, result.totalMicroseconds);
+        worstTime = std::max(worstTime, result.totalMicroseconds);
+        totalTime += result.totalMicroseconds;
+        totalTrades += result.tradesGenerated;
+    }
+
+    double averageTotalTime = static_cast<double>(totalTime) / static_cast<double>(runs);
+    double averagePerOrder = averageTotalTime / static_cast<double>(numberOfOrders);
+    double averageTrades = static_cast<double>(totalTrades) / static_cast<double>(runs);
+
+    std::cout << "\n===== MULTI-RUN BENCHMARK =====\n";
+    std::cout << "Runs: " << runs << "\n";
+    std::cout << "Orders per run: " << numberOfOrders << "\n";
+    std::cout << "Best time: " << bestTime << " microseconds\n";
+    std::cout << "Average time: " << std::fixed << std::setprecision(2) << averageTotalTime << " microseconds\n";
+    std::cout << "Worst time: " << worstTime << " microseconds\n";
+    std::cout << "Average processing time: " << std::fixed << std::setprecision(4) << averagePerOrder << " microseconds/order\n";
+    std::cout << "Average trades generated: " << std::fixed << std::setprecision(2) << averageTrades << "\n";
+    std::cout << "===============================\n";
 }
