@@ -29,6 +29,7 @@ int main() {
     std::cout << "PRINT\n";
     std::cout << "TRADES\n";
     std::cout << "BENCHMARK <numberOfOrders>\n";
+    std::cout << "BENCHMARK_MULTI <numberOfOrders> <runs>\n";
     std::cout << "EXIT\n\n";
 
     while (std::cin >> command) {
@@ -65,6 +66,12 @@ int main() {
                 std::cin >> numberOfOrders;
 
                 orderBook.runBenchmark(numberOfOrders);
+            } else if(command == "BENCHMARK_MULTI"){
+                int numberOfOrders;
+                int runs;
+                std::cin >> numberOfOrders >> runs;
+
+                orderBook.runBenchmarkMultiple(numberOfOrders, runs);
             } else if (command == "EXIT") {
                 break;
             } else {
