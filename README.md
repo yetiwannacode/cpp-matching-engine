@@ -2,7 +2,7 @@
 
 A simplified matching engine and limit order book simulator built in C++.
 
-The project implements price-time priority matching, partial fills, order cancellation, order modification, trade logging, and synthetic order-flow benchmarking.
+The project implements price-time priority matching, partial fills, order cancellation, order modification, trade logging, command-based input, and synthetic order-flow benchmarking.
 
 ## Why I Built This
 
@@ -23,10 +23,10 @@ The focus of this project is on:
 - Match orders using price-time priority
 - Support partial fills
 - Cancel existing orders
-- Modify existing orders
+- Modify existing orders as cancel-and-replace
 - Print current order book state
 - Maintain executed trade logs
-- Run synthetic order-flow benchmarks using `std::chrono`
+- Run single and multi-run synthetic order-flow benchmarks using `std::chrono`
 
 ## Project Outcome
 
@@ -41,7 +41,9 @@ The simulator currently supports the complete flow of a simplified limit order b
 - Logging executed trades
 - Running synthetic order-flow benchmarks
 
-On a sample benchmark of 100,000 synthetic orders, the engine processed the orders in 68,145 microseconds, with an average processing time of 0.6815 microseconds per order on my system.
+On a sample single-run benchmark of 100,000 synthetic orders, the engine processed the orders in 29,916 microseconds, averaging 0.2992 microseconds per order on my system.
+
+In a 5-run benchmark with 100,000 synthetic orders per run, the engine recorded a best time of 20,394 microseconds, an average time of 25,012.40 microseconds, and a worst time of 30,128 microseconds, averaging 0.2501 microseconds per order.
 
 These benchmark numbers are machine-dependent and are intended only to measure this simplified in-memory implementation. They should not be interpreted as production-level HFT latency.
 
@@ -54,6 +56,7 @@ MODIFY <orderId> <newPrice> <newQuantity>
 PRINT
 TRADES
 BENCHMARK <numberOfOrders>
+BENCHMARK_MULTI <numberOfOrders> <runs>
 EXIT
 ```
 
@@ -72,6 +75,7 @@ MODIFY 4 102 8
 PRINT
 TRADES
 BENCHMARK 100000
+BENCHMARK_MULTI 100000 5
 EXIT
 ```
 
@@ -86,6 +90,7 @@ MODIFY <orderId> <newPrice> <newQuantity>
 PRINT
 TRADES
 BENCHMARK <numberOfOrders>
+BENCHMARK_MULTI <numberOfOrders> <runs>
 EXIT
 
 TRADE: BuyOrder=1 SellOrder=2 Price=100 Quantity=5
@@ -130,10 +135,20 @@ BuyOrder=4 SellOrder=3 Price=101 Quantity=7
 
 ===== BENCHMARK =====
 Processed orders: 100000
-Total time: 68145 microseconds
-Average processing time: 0.6815 microseconds/order
+Total time: 29916 microseconds
+Average processing time: 0.2992 microseconds/order
 Trades generated: 79280
 =====================
+
+===== MULTI-RUN BENCHMARK =====
+Runs: 5
+Orders per run: 100000
+Best time: 20394 microseconds
+Average time: 25012.40 microseconds
+Worst time: 30128 microseconds
+Average processing time: 0.2501 microseconds/order
+Average trades generated: 79244.60
+===============================
 ```
 
 Benchmark results are machine-dependent and may vary across systems.
@@ -219,7 +234,7 @@ Let `P` be the number of active price levels and `K` be the number of orders or 
 | Add order to book | `O(log P)` |
 | Access best bid/ask | `O(1)` using `map.begin()` |
 | Match order | `O(K log P)` in the worst case due to price-level removals |
-| Cancel order | `O(1)` lookup + `O(1)` erase using stored list iterator |
+| Cancel order | `O(1)` order lookup + `O(log P)` price-level lookup + `O(1)` list erase |
 | Modify order | Cancel + Add |
 
 ## Benchmarking
@@ -231,6 +246,14 @@ Example:
 ```text
 BENCHMARK 100000
 ```
+
+The project also supports repeated benchmark runs:
+
+```text
+BENCHMARK_MULTI 100000 5
+```
+
+This runs the benchmark multiple times and reports the best, average, and worst processing time across runs.
 
 The benchmark reports:
 
