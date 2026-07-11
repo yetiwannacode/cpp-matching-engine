@@ -3,6 +3,7 @@
 #include "Order.hpp"
 #include "Trade.hpp"
 
+#include <cstddef>
 #include <functional>
 #include <list>
 #include <map>
@@ -29,6 +30,12 @@ private:
         OrderQueue::iterator iterator;
     };
 
+    struct BenchmarkResult {
+        long long totalMicroseconds;
+        double averageMicroseconds;
+        std::size_t tradesGenerated;
+    };
+
     // Fast lookup by order ID for cancel/modify
     std::unordered_map<int, OrderLocation> orderMap;
 
@@ -43,6 +50,7 @@ private:
     void matchBuyOrder(Order& incomingOrder);
     void matchSellOrder(Order& incomingOrder);
     void addToBook(const Order& order);
+    BenchmarkResult runBenchmarkOnce(int numberOfOrders, unsigned int seed);
 
 public:
     OrderBook();
@@ -54,4 +62,5 @@ public:
     void printBook() const;
     void printTrades() const;
     void runBenchmark(int numberOfOrders);
+    void runBenchmarkMultiple(int numberOfOrders, int runs);
 };
