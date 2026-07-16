@@ -1,0 +1,27 @@
+name: C++ CI
+
+on:
+  push:
+    branches:
+      - main
+      - polishes
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-test-sanitize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build release executable
+        run: make
+
+      - name: Run automated tests
+        run: make test
+
+      - name: Run AddressSanitizer and UndefinedBehaviorSanitizer
+        run: make sanitize

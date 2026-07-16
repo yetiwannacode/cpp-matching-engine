@@ -7,6 +7,7 @@
 #include <functional>
 #include <list>
 #include <map>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -17,13 +18,9 @@ private:
     using BuyBook = std::map<Price, OrderQueue, std::greater<Price>>;
     using SellBook = std::map<Price, OrderQueue>;
 
-    // Buy book: highest price first
     BuyBook buyBook;
-
-    // Sell book: lowest price first
     SellBook sellBook;
 
-    // Stores where an order currently exists in the book
     struct OrderLocation {
         Side side;
         Price price;
@@ -36,31 +33,32 @@ private:
         std::size_t tradesGenerated;
     };
 
-    // Fast lookup by order ID for cancel/modify
     std::unordered_map<int, OrderLocation> orderMap;
-
-    // Stores all executed trades
     std::vector<Trade> trades;
-
-    // Used to preserve time priority
     long long timestampCounter;
     bool verboseOutput;
 
-    // Internal helper functions
     void matchBuyOrder(Order& incomingOrder);
     void matchSellOrder(Order& incomingOrder);
     void addToBook(const Order& order);
     BenchmarkResult runBenchmarkOnce(int numberOfOrders, unsigned int seed);
 
 public:
-    OrderBook();
+    explicit OrderBook(bool verbose = true);
 
-    void addOrder(int orderId, Side side, int price, int quantity);
-    void cancelOrder(int orderId);
-    void modifyOrder(int orderId, int newPrice, int newQuantity);
+    bool addOrder(int orderId, Side side, int price, int quantity);
+    bool cancelOrder(int orderId);
+    bool modifyOrder(int orderId, int newPrice, int newQuantity);
 
     void printBook() const;
     void printTrades() const;
     void runBenchmark(int numberOfOrders);
     void runBenchmarkMultiple(int numberOfOrders, int runs);
+
+    [[nodiscard]] bool hasOrder(int orderId) const noexcept;
+    [[nodiscard]] std::optional<Order> getOrder(int orderId) const;
+    [[nodiscard]] const std::vector<Trade>& getTrades() const noexcept;
+    [[nodiscard]] std::size_t activeOrderCount() const noexcept;
+    [[nodiscard]] std::optional<int> bestBid() const noexcept;
+    [[nodiscard]] std::optional<int> bestAsk() const noexcept;
 };
