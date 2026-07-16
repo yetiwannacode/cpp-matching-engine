@@ -1,51 +1,41 @@
-# C++ Matching Engine Simulator
+# C++ Limit Order Book and Matching Engine
 
-A simplified matching engine and limit order book simulator built in C++.
+[![C++ CI](https://github.com/yetiwannacode/cpp-matching-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/yetiwannacode/cpp-matching-engine/actions/workflows/ci.yml)
 
-The project implements price-time priority matching, partial fills, order cancellation, order modification, trade logging, command-based input, and synthetic order-flow benchmarking.
+A single-instrument limit-order-book and matching-engine simulator implemented in C++17.
+
+The engine supports price-time priority, FIFO execution within price levels, partial fills, cancellation, cancel-and-replace modification, trade logging, deterministic benchmarking, automated behavioural testing, and sanitizer-backed continuous integration.
 
 ## Why I Built This
 
-I built this project to understand the core data structures and matching logic used in electronic trading systems, and to practice performance-conscious C++ design.
+I built this project to understand the data structures and matching logic used in electronic trading systems while practising performance-conscious C++ design.
 
-The focus of this project is on:
+The project focuses on:
 
-- C++ and object-oriented design
+- C++17 and object-oriented design
 - Data structures and algorithms
-- Order book mechanics
-- Price-time priority matching
-- Efficient order lookup for cancel/modify operations
-- Basic latency benchmarking using synthetic order flow
+- Limit-order-book mechanics
+- Price-time priority
+- Efficient cancellation and modification
+- Deterministic performance measurement
+- Automated testing and continuous integration
+- Explicit documentation of design assumptions and limitations
 
 ## Features
 
-- Add buy and sell limit orders
-- Match orders using price-time priority
+- Add BUY and SELL limit orders
+- Match crossed orders using price-time priority
+- Preserve FIFO ordering within each price level
 - Support partial fills
-- Cancel existing orders
-- Modify existing orders as cancel-and-replace
-- Print current order book state
-- Maintain executed trade logs
-- Run single and multi-run synthetic order-flow benchmarks using `std::chrono`
-
-## Project Outcome
-
-The simulator currently supports the complete flow of a simplified limit order book:
-
-- Adding buy and sell limit orders
-- Matching crossed orders using price-time priority
-- Handling partial fills
-- Cancelling resting orders
-- Modifying existing orders as cancel-and-replace
-- Printing the current order book
-- Logging executed trades
-- Running synthetic order-flow benchmarks
-
-On a sample single-run benchmark of 100,000 synthetic orders, the engine processed the orders in 29,916 microseconds, averaging 0.2992 microseconds per order on my system.
-
-In a 5-run benchmark with 100,000 synthetic orders per run, the engine recorded a best time of 20,394 microseconds, an average time of 25,012.40 microseconds, and a worst time of 30,128 microseconds, averaging 0.2501 microseconds per order.
-
-These benchmark numbers are machine-dependent and are intended only to measure this simplified in-memory implementation. They should not be interpreted as production-level HFT latency.
+- Match an incoming order across multiple price levels
+- Cancel active resting orders
+- Modify orders using cancel-and-replace semantics
+- Print the current order-book state
+- Maintain a history of executed trades
+- Inspect the best bid and best ask
+- Run deterministic single-run and multi-run benchmarks
+- Validate matching behaviour through 10 automated tests
+- Run AddressSanitizer and UndefinedBehaviorSanitizer checks in CI
 
 ## Supported Commands
 
@@ -70,234 +60,173 @@ ADD 4 BUY 101 10
 PRINT
 TRADES
 CANCEL 1
-PRINT
 MODIFY 4 102 8
 PRINT
-TRADES
-BENCHMARK 100000
 BENCHMARK_MULTI 100000 5
 EXIT
 ```
 
-## Example Output
+## Matching Rules
 
-```text
-C++ Matching Engine Simulator
-Supported commands:
-ADD <orderId> <BUY/SELL> <price> <quantity>
-CANCEL <orderId>
-MODIFY <orderId> <newPrice> <newQuantity>
-PRINT
-TRADES
-BENCHMARK <numberOfOrders>
-BENCHMARK_MULTI <numberOfOrders> <runs>
-EXIT
+### Price Priority
 
-TRADE: BuyOrder=1 SellOrder=2 Price=100 Quantity=5
-TRADE: BuyOrder=4 SellOrder=3 Price=101 Quantity=7
+The most competitive price is matched first:
 
-===== ORDER BOOK =====
-SELL ORDERS:
+- Higher-priced BUY orders receive priority over lower-priced BUY orders.
+- Lower-priced SELL orders receive priority over higher-priced SELL orders.
 
-BUY ORDERS:
-Price 101: [ID=4, Qty=3]
-Price 100: [ID=1, Qty=5]
-======================
+### Time Priority
 
-===== TRADES =====
-BuyOrder=1 SellOrder=2 Price=100 Quantity=5
-BuyOrder=4 SellOrder=3 Price=101 Quantity=7
-==================
+Orders at the same price level are executed in FIFO order.
 
-Cancelled order: 1
+An order inserted earlier at a price level is matched before an order inserted later at the same price.
 
-===== ORDER BOOK =====
-SELL ORDERS:
+### Trade Price
 
-BUY ORDERS:
-Price 101: [ID=4, Qty=3]
-======================
+A trade executes at the price of the resting order already present in the book.
 
-Cancelled order: 4
-Modified order: 4 NewPrice=102 NewQuantity=8
+### Partial Fills
 
-===== ORDER BOOK =====
-SELL ORDERS:
+If an incoming order cannot be completely filled by one resting order, its remaining quantity continues matching against subsequent eligible orders.
 
-BUY ORDERS:
-Price 102: [ID=4, Qty=8]
-======================
+An incoming order may therefore:
 
-===== TRADES =====
-BuyOrder=1 SellOrder=2 Price=100 Quantity=5
-BuyOrder=4 SellOrder=3 Price=101 Quantity=7
-==================
+- Partially fill one resting order
+- Fully consume one or more resting orders
+- Match multiple orders at the same price
+- Continue matching across multiple price levels
 
-===== BENCHMARK =====
-Processed orders: 100000
-Total time: 29916 microseconds
-Average processing time: 0.2992 microseconds/order
-Trades generated: 79280
-=====================
+If quantity remains after no further eligible match is available, the remaining quantity is added to the order book.
 
-===== MULTI-RUN BENCHMARK =====
-Runs: 5
-Orders per run: 100000
-Best time: 20394 microseconds
-Average time: 25012.40 microseconds
-Worst time: 30128 microseconds
-Average processing time: 0.2501 microseconds/order
-Average trades generated: 79244.60
-===============================
-```
+### Order Modification
 
-Benchmark results are machine-dependent and may vary across systems.
+Modification follows cancel-and-replace semantics.
 
-## Assumptions and Design Choices
+The original order is removed and a replacement order is inserted with the new price and quantity. The modified order therefore loses its previous FIFO priority.
 
-This project intentionally models a simplified single-instrument matching engine.
+## Assumptions
+
+This project intentionally models a simplified matching engine.
 
 The following assumptions are used:
 
-- All orders are limit orders.
+- All submitted orders are limit orders.
 - Prices and quantities are represented as integers.
-- The engine handles one instrument/order book at a time.
-- Active resting order IDs are assumed to be unique. Fully matched incoming orders are recorded in the trade log but are not retained in the active order map.
-- Matching happens immediately when an incoming order crosses the opposite side of the book.
-- Within the same price level, orders follow FIFO ordering to preserve time priority.
-- The trade price is taken from the resting order already present in the book.
-- A modified order is treated as a cancel followed by a new add, so it receives a new timestamp and loses its earlier time priority.
-- Benchmarking uses synthetic randomly generated orders and does not represent real exchange latency.
+- The engine manages one instrument and one order book.
+- Active resting-order IDs must be unique.
+- Matching occurs immediately when an incoming order crosses the opposite side.
+- Orders at the same price level follow FIFO ordering.
+- The execution price is the resting order's price.
+- Modification is treated as cancellation followed by insertion of a new order.
+- Benchmark orders are synthetically generated.
+- Benchmark results represent in-memory processing, not exchange latency.
 
-This project does not attempt to model real-world trading infrastructure completely. It focuses on the core matching logic and data-structure design.
+## Data Structures
 
-## Data Structures Used
+The design separates price ordering, FIFO execution, and active-order lookup.
 
-### Buy Book
+### Bid Book
 
 ```cpp
 std::map<Price, OrderQueue, std::greater<Price>>
 ```
 
-The buy book is sorted in descending price order, so the highest bid is always available first.
+Bid levels are stored in descending order, making the highest bid available at the beginning of the map.
 
-### Sell Book
+### Ask Book
 
 ```cpp
 std::map<Price, OrderQueue>
 ```
 
-The sell book is sorted in ascending price order, so the lowest ask is always available first.
+Ask levels are stored in ascending order, making the lowest ask available at the beginning of the map.
 
-### Order Queues
+### FIFO Order Queues
 
 ```cpp
 std::list<Order>
 ```
 
-Each price level stores orders in FIFO order to preserve time priority.
+Each price level stores its orders in a linked list.
 
-### Order Lookup
+New orders are appended to the back, while matching starts from the front, preserving FIFO priority.
+
+### Active-Order Lookup
 
 ```cpp
 std::unordered_map<int, OrderLocation>
 ```
 
-This allows efficient lookup of orders for cancellation and modification.
+The lookup table maps an active order ID to its location in the book.
 
-The `OrderLocation` stores the order side, price level, and iterator to the order inside the corresponding price-level queue.
+This avoids scanning every price level during cancellation or modification.
+
+`OrderLocation` stores information such as:
+
+- Order side
+- Price level
+- Iterator to the order within its FIFO queue
+
+### Trade Log
+
+```cpp
+std::vector<Trade>
+```
+
+Completed executions are recorded for later inspection through the `TRADES` command and automated tests.
 
 ## Matching Logic
 
-Buy orders match against the lowest available sell price when:
+A BUY order can match when:
 
 ```text
-buy price >= best sell price
+incoming buy price >= best available sell price
 ```
 
-Sell orders match against the highest available buy price when:
+A SELL order can match when:
 
 ```text
-sell price <= best buy price
+incoming sell price <= best available buy price
 ```
 
-Within the same price level, older orders are matched first. This preserves price-time priority.
+At each eligible price level:
 
-If an incoming order is only partially filled, its remaining quantity continues matching until no more eligible opposite-side orders exist. If some quantity still remains after matching, it is added to the book.
+1. The oldest resting order is selected.
+2. The minimum of incoming and resting quantity is executed.
+3. The executed quantity is removed from both orders.
+4. A fully filled resting order is removed.
+5. A fully filled incoming order stops matching.
+6. Any remaining incoming quantity continues to the next eligible order or price level.
 
 ## Complexity Analysis
 
-Let `P` be the number of active price levels and `K` be the number of orders or price levels matched by an incoming order.
+Let:
 
-| Operation | Complexity |
-|---|---|
-| Add order to book | `O(log P)` |
-| Access best bid/ask | `O(1)` using `map.begin()` |
-| Match order | `O(K log P)` in the worst case due to price-level removals |
-| Cancel order | `O(1)` order lookup + `O(log P)` price-level lookup + `O(1)` list erase |
-| Modify order | Cancel + Add |
+- `P` be the number of active price levels
+- `K` be the number of resting orders matched by an incoming order
+- `L` be the number of affected price levels
 
-## Benchmarking
+| Operation | Expected complexity |
+|---|---:|
+| Locate active order by ID | `O(1)` average |
+| Insert into an existing price level | `O(1)` |
+| Create a new price level | `O(log P)` |
+| Access best bid or ask | `O(1)` using `map.begin()` |
+| Erase an order using its stored list iterator | `O(1)` |
+| Cancel an order | `O(1)` average lookup + `O(log P)` price-level lookup |
+| Modify an order | Cancellation + insertion |
+| Match an incoming order | `O(K + L log P)` |
 
-The benchmark command generates synthetic buy and sell orders with randomized prices and quantities.
-
-Example:
-
-```text
-BENCHMARK 100000
-```
-
-The project also supports repeated benchmark runs:
-
-```text
-BENCHMARK_MULTI 100000 5
-```
-
-This runs the benchmark multiple times and reports the best, average, and worst processing time across runs.
-
-The benchmark reports:
-
-- Number of processed orders
-- Total processing time
-- Average processing time per order
-- Number of trades generated
-
-This benchmark is useful for comparing changes within this project, but it should not be interpreted as production-level HFT latency. It does not include network delays, exchange connectivity, kernel bypass, risk checks, persistence, logging overhead, or real market-data feed handling.
-
-## How to Build
-
-### Windows PowerShell
-
-Compile:
-
-```powershell
-g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/main.cpp src/OrderBook.cpp -o matching_engine.exe
-```
-
-Run with sample input:
-
-```powershell
-Get-Content sample_input.txt | .\matching_engine.exe
-```
-
-### Linux / Git Bash
-
-Compile:
-
-```bash
-g++ -std=c++17 -O2 -Wall -Wextra -Iinclude src/main.cpp src/OrderBook.cpp -o matching_engine
-```
-
-Run with sample input:
-
-```bash
-./matching_engine < sample_input.txt
-```
+Actual runtime depends on workload distribution, compiler optimisation, memory allocation, and hardware.
 
 ## Project Structure
 
 ```text
 cpp-matching-engine/
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 │
 ├── include/
 │   ├── Order.hpp
@@ -309,7 +238,7 @@ cpp-matching-engine/
 │   └── main.cpp
 │
 ├── tests/
-│   └── sample_test.txt
+│   └── OrderBookTests.cpp
 │
 ├── sample_input.txt
 ├── Makefile
@@ -317,29 +246,253 @@ cpp-matching-engine/
 └── README.md
 ```
 
+The generated `build/` directory is excluded from version control.
+
+## Build Instructions
+
+### Requirements
+
+- C++17-compatible compiler
+- GNU Make for the provided Makefile
+
+### Build with Make
+
+```bash
+make
+```
+
+The executable is generated inside the `build` directory.
+
+### Manual Windows PowerShell Build
+
+```powershell
+New-Item -ItemType Directory -Force build | Out-Null
+
+g++ -Iinclude -std=c++17 -Wall -Wextra -Wpedantic `
+    -Wconversion -Wshadow -O2 -DNDEBUG `
+    src/main.cpp src/OrderBook.cpp `
+    -o build\matching_engine.exe
+```
+
+Run using the sample command file:
+
+```powershell
+Get-Content sample_input.txt | .\build\matching_engine.exe
+```
+
+### Manual Linux Build
+
+```bash
+mkdir -p build
+
+g++ -Iinclude \
+    -std=c++17 \
+    -Wall \
+    -Wextra \
+    -Wpedantic \
+    -Wconversion \
+    -Wshadow \
+    -O2 \
+    -DNDEBUG \
+    src/main.cpp \
+    src/OrderBook.cpp \
+    -o build/matching_engine
+```
+
+Run using the sample command file:
+
+```bash
+./build/matching_engine < sample_input.txt
+```
+
+## Automated Testing
+
+Run the test suite using:
+
+```bash
+make test
+```
+
+The automated tests validate:
+
+1. Better-price execution priority
+2. FIFO execution within the same price level
+3. Partial filling of a resting order
+4. Matching across multiple price levels
+5. Order cancellation
+6. Loss of time priority after modification
+7. Rejection of duplicate active order IDs
+8. Rejection of invalid prices and quantities
+9. Uncrossed orders remaining unexecuted
+10. Execution at the resting order's price
+
+A successful run ends with:
+
+```text
+10/10 tests passed.
+```
+
+### Manual Windows Test Build
+
+```powershell
+g++ -Iinclude -std=c++17 -Wall -Wextra -Wpedantic `
+    -Wconversion -Wshadow -O0 -g3 `
+    tests/OrderBookTests.cpp src/OrderBook.cpp `
+    -o build\order_book_tests.exe
+
+.\build\order_book_tests.exe
+```
+
+## Sanitizer Checks
+
+Run the test suite with AddressSanitizer and UndefinedBehaviorSanitizer using:
+
+```bash
+make sanitize
+```
+
+The sanitizer build helps detect issues such as:
+
+- Out-of-bounds memory access
+- Use-after-free
+- Invalid pointer usage
+- Integer and other selected forms of undefined behaviour
+
+The sanitizer checks run in the Ubuntu-based GitHub Actions environment.
+
+## Continuous Integration
+
+The repository includes a GitHub Actions workflow at:
+
+```text
+.github/workflows/ci.yml
+```
+
+For relevant pushes and pull requests, CI automatically:
+
+1. Builds the release executable
+2. Compiles and runs all behavioural tests
+3. Runs the test suite with AddressSanitizer
+4. Runs the test suite with UndefinedBehaviorSanitizer
+
+## Benchmark Methodology
+
+The built-in benchmark generates a synthetic workload and measures order submission and matching.
+
+To improve repeatability and isolate matching-engine work:
+
+- The complete synthetic workload is generated before timing begins.
+- A fixed random seed is used.
+- Repeated benchmark runs process the same order sequence.
+- `std::chrono::steady_clock` measures elapsed time.
+- Console logging is disabled during the timed region.
+- Trade recording remains enabled.
+- Best, average, and worst processing times are reported.
+
+### Synthetic Workload
+
+The workload contains:
+
+- Random BUY and SELL limit orders
+- Unique order IDs
+- Prices ranging from 90 to 110
+- Quantities ranging from 1 to 100
+
+Run a single benchmark using:
+
+```text
+BENCHMARK 100000
+```
+
+Run repeated measurements using:
+
+```text
+BENCHMARK_MULTI 100000 5
+```
+
+From Windows PowerShell:
+
+```powershell
+"BENCHMARK_MULTI 100000 5`nEXIT" |
+    .\build\matching_engine.exe
+```
+
+## Published Benchmark
+
+### Environment
+
+- **CPU:** 13th Gen Intel Core i5-1340P
+- **Operating system:** Windows 10 Home Single Language, 64-bit
+- **Windows version:** 2009
+- **Compiler:** GCC 13.2.0, MSYS2 MinGW-w64
+- **Language standard:** C++17
+- **Optimisation flags:** `-O2 -DNDEBUG`
+- **Warning flags:** `-Wall -Wextra -Wpedantic -Wconversion -Wshadow`
+- **Orders per run:** 100,000
+- **Runs:** 5
+
+### Results
+
+| Metric | Result |
+|---|---:|
+| Best total processing time | 19,891 μs |
+| Average total processing time | 22,857 μs |
+| Worst total processing time | 26,506 μs |
+| Average processing time per order | 0.2286 μs |
+| Average trades generated | 79,280 |
+
+The engine processed 100,000 synthetic orders in approximately **22.9 milliseconds on average** across five repeated runs.
+
+The results are machine-dependent and represent a synthetic, single-process, in-memory workload. They do not include:
+
+- Network transmission
+- Exchange connectivity
+- Kernel bypass
+- Market-data feeds
+- Persistence
+- Risk checks
+- Production logging
+- End-to-end exchange round trips
+
+The reported figures should therefore not be interpreted as production high-frequency-trading latency.
+
 ## Current Limitations
 
-This is a simplified educational matching engine. It does not include:
+This implementation intentionally focuses on core order-book behaviour.
+
+It does not currently include:
 
 - Multiple instruments
 - Market orders
-- Stop orders
+- Stop or conditional orders
 - Tick-size validation
-- Real exchange connectivity
-- Network feed handling
-- Risk checks
-- Persistent storage
-- Multithreaded market data ingestion
-- Production-grade latency measurement
-- p50, p95, or p99 latency distribution tracking
+- Real exchange protocols
+- Network connectivity
+- Persistent state or crash recovery
+- Pre-trade risk checks
+- Market-data publication
+- Concurrent order processing
+- Lock-free data structures
+- Custom memory allocation
+- Production-grade latency instrumentation
+- Per-operation latency percentiles
 
 ## Future Improvements
 
-- Add socket-based order input
-- Add p50, p95, and p99 latency tracking
-- Add object pooling to reduce dynamic allocations
-- Replace STL containers with more cache-friendly structures
-- Add multithreaded market data simulation
-- Add unit tests for matching, cancellation, modification, and edge cases
-- Support multiple instruments using separate order books
-- Add stricter command validation and error handling
+- Support multiple instruments
+- Add market orders and additional order types
+- Add tick-size and instrument-level validation
+- Add snapshot persistence and recovery
+- Separate execution reports from market-data events
+- Add p50, p95, and p99 per-operation latency measurements
+- Evaluate object pools and custom memory allocators
+- Explore cache-aware alternatives to general-purpose STL containers
+- Add concurrent ingestion with explicit ordering guarantees
+- Add pre-trade validation and risk controls
+- Add structured output for integration and replay testing
+
+## Disclaimer
+
+This project is an educational simulation of selected limit-order-book and matching-engine behaviours.
+
+It is not intended for live trading, investment decision-making, or production financial use.
